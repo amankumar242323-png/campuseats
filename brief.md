@@ -1,5 +1,17 @@
 # CampusEats — System Brief
 
+**Course:** CS543
+**Group ID:** 02
+
+## Group Members
+
+1. **AMAN KUMAR** — 20251651017
+2. **SHRIKANTA NAYAK** — 20251651090
+3. **ADITYA VERMA** — 20251651009
+4. **PRATIK SINHA** — 20251651071
+
+---
+
 ## What
 
 CampusEats is a campus food-service system designed to make it easier for students and other campus users to discover and use available food services. The system provides a structured way to view food options, interact with food services, place requests or orders, and manage food-related activities.
