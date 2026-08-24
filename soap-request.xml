@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<soap:Envelope
+    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:uni="urn:campuseats:payments">
+
+    <soap:Header>
+        <uni:auth token="CE-MERCHANT-KEY"/>
+    </soap:Header>
+
+    <soap:Body>
+        <uni:charge>
+            <uni:cardToken>tok_9f2c</uni:cardToken>
+            <uni:amount>300.00</uni:amount>
+            <uni:currency>INR</uni:currency>
+        </uni:charge>
+    </soap:Body>
+
+</soap:Envelope>
