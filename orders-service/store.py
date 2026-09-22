@@ -62,8 +62,12 @@ def find_by_idempotency_key(key: str) -> Order | None:
 def cancel_order(order: Order) -> Order:
     order.status = "cancelled"
     return order
+
+
 def find_all() -> list[Order]:
     return list(_orders.values())
+
+
 def update_order_status(order: Order, status: str) -> Order:
     order.status = status
     return order
