@@ -8,6 +8,11 @@ TITLES = {
     "invalid-address": "Invalid address",
     "not-cancellable": "Order cannot be cancelled",
     "catalogue-unavailable": "Catalogue unavailable",
+    "unauthorized": "Unauthorized",
+    "not-acceptable": "Not acceptable",
+    "rate-limit-exceeded": "Too many requests",
+    "precondition-failed": "Precondition failed",
+    "method-not-allowed": "Method not allowed",
 }
 
 

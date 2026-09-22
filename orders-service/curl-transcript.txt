@@ -1,0 +1,141 @@
+﻿Assignment 5 - HTTP/cURL Transcript
+Team ID: 02
+
+============================================================
+1. CREATE ORDER - 201 Created
+============================================================
+
+Request:
+curl -v -X POST http://127.0.0.1:8082/orders `
+  -H "Authorization: Bearer test-token" `
+  -H "Content-Type: application/json" `
+  -H "Accept: application/json" `
+  -H "Idempotency-Key: order-manual-004" `
+  --data "@body.json"
+
+Expected/Observed response:
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /orders/1
+Cache-Control: no-store
+
+{
+  "orderId": 1,
+  "status": "placed",
+  "total": 240,
+  "estimatedMinutes": 30
+}
+
+============================================================
+2. IDEMPOTENT REPEAT - 200 OK
+============================================================
+
+Request:
+Same POST request with the same Idempotency-Key:
+order-manual-004
+
+Response:
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+The original order is returned and no duplicate order is created.
+
+============================================================
+3. CONDITIONAL GET - 304 Not Modified
+============================================================
+
+Request:
+curl -v http://127.0.0.1:8082/orders/1 `
+  -H "Authorization: Bearer test-token" `
+  -H "Accept: application/json" `
+  -H 'If-None-Match: "98142eca5a3ecbe9117f5ff9f43ae827f09342139aeaf23f31c86120e27c51df"'
+
+Response:
+HTTP/1.1 304 Not Modified
+ETag: "98142eca5a3ecbe9117f5ff9f43ae827f09342139aeaf23f31c86120e27c51df"
+
+No response body is returned.
+
+============================================================
+4. CONDITIONAL UPDATE - 412 Precondition Failed
+============================================================
+
+Request:
+curl -v -X PATCH http://127.0.0.1:8082/orders/1 `
+  -H "Authorization: Bearer test-token" `
+  -H "Content-Type: application/json" `
+  -H "Accept: application/json" `
+  -H 'If-Match: "wrong-etag"' `
+  --data '{"status":"cancelled"}'
+
+Response:
+HTTP/1.1 412 Precondition Failed
+Content-Type: application/json
+
+The update is rejected because the supplied ETag does not
+match the current resource representation.
+
+============================================================
+5. INVALID REQUEST - 400 Bad Request
+============================================================
+
+Request:
+curl -v -X POST http://127.0.0.1:8082/orders `
+  -H "Authorization: Bearer test-token" `
+  -H "Content-Type: application/json" `
+  -H "Accept: application/json" `
+  -H "Idempotency-Key: invalid-request-001" `
+  --data '{}'
+
+Response:
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+The request is malformed/invalid because required fields are
+missing.
+
+============================================================
+6. UNKNOWN ORDER - 404 Not Found
+============================================================
+
+Request:
+curl -v http://127.0.0.1:8082/orders/9999 `
+  -H "Authorization: Bearer test-token" `
+  -H "Accept: application/json"
+
+Response:
+HTTP/1.1 404 Not Found
+Content-Type: application/json
+
+The requested order does not exist.
+
+============================================================
+7. MISSING AUTHORIZATION - 401 Unauthorized
+============================================================
+
+Request:
+curl -v http://127.0.0.1:8082/orders/1 `
+  -H "Accept: application/json"
+
+Response:
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+
+The request is rejected because the Authorization header is
+missing.
+
+============================================================
+HTTP VERSION
+============================================================
+
+The cURL -v exchanges use HTTP/1.1 when communicating with the
+local Flask service.
+
+============================================================
+NOTES
+============================================================
+
+The Orders Service keeps its data in memory, so restarting the
+service clears previously created orders. Therefore, order IDs
+and ETags shown above represent the successful manual test run
+used for Assignment 5 verification.

@@ -64,3 +64,6 @@ def cancel_order(order: Order) -> Order:
     return order
 def find_all() -> list[Order]:
     return list(_orders.values())
+def update_order_status(order: Order, status: str) -> Order:
+    order.status = status
+    return order
