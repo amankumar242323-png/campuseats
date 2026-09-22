@@ -1,0 +1,6 @@
+@'
+{
+  "restaurantId": 1,
+  "menuId": 10
+}
+'@ | Set-Content -Encoding UTF8 bad-body.json

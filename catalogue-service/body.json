@@ -1,0 +1,8 @@
+﻿{
+  "restaurantId": 1,
+  "menuId": 10,
+  "name": "Veg Biryani",
+  "description": "Campus special",
+  "price": 120,
+  "available": true
+}

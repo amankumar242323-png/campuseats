@@ -1,0 +1,56 @@
+CS543 Assignment 4
+CampusEats Catalogue Service
+
+==================================================
+1. CREATE MENU ITEM
+==================================================
+
+COMMAND:
+curl -i -X POST http://localhost:8081/menu-items -H "Content-Type: application/json" -H "Idempotency-Key: key-001" -d "{\"restaurantId\":1,\"menuId\":10,\"name\":\"Veg Biryani\",\"description\":\"Campus special\",\"price\":120,\"available\":true}"
+
+
+PASTE ACTUAL OUTPUT HERE
+
+
+==================================================
+2. REPEAT SAME REQUEST
+==================================================
+
+COMMAND:
+curl -i -X POST http://localhost:8081/menu-items -H "Content-Type: application/json" -H "Idempotency-Key: key-001" -d "{\"restaurantId\":1,\"menuId\":10,\"name\":\"Veg Biryani\",\"description\":\"Campus special\",\"price\":120,\"available\":true}"
+
+
+PASTE ACTUAL OUTPUT HERE
+
+
+==================================================
+3. MALFORMED REQUEST
+==================================================
+
+COMMAND:
+curl -i -X POST http://localhost:8081/menu-items -H "Content-Type: application/json" -H "Idempotency-Key: key-bad" -d "{\"restaurantId\":1}"
+
+
+PASTE ACTUAL OUTPUT HERE
+
+
+==================================================
+4. UNKNOWN RESOURCE
+==================================================
+
+COMMAND:
+curl -i http://localhost:8081/menu-items/999
+
+
+PASTE ACTUAL OUTPUT HERE
+
+
+==================================================
+5. STATE CONFLICT
+==================================================
+
+COMMAND:
+curl -i -X PATCH http://localhost:8081/menu-items/1/availability -H "Content-Type: application/json" -d "{\"available\":true}"
+
+
+PASTE ACTUAL OUTPUT HERE
