@@ -1,0 +1,405 @@
+CAMPUSEATS — ASSIGNMENT 6
+Honest Responses: Status Codes, Errors & Validation
+
+Course: CS543
+Group ID: 02
+
+TEAM MEMBERS
+1. AMAN KUMAR — 20251651017
+2. SRIKANTA NAYAK — 20251651090
+3. ADITYA VERMA — 20251651009
+4. PRATIK SINHA — 20251651071
+
+Service: Orders Service
+Base URL: http://127.0.0.1:8082
+Catalogue Service: http://127.0.0.1:8081
+
+============================================================
+TEST 1: SUCCESSFUL ORDER CREATION — 201 CREATED
+============================================================
+
+Request:
+POST /orders
+
+Command:
+curl.exe -i -X POST "http://127.0.0.1:8082/orders" -H "Content-Type: application/json" -H "Accept: application/json" -H "Authorization: Bearer test-token" -H "Idempotency-Key: a6-transcript-001" --data-binary "@order-body.json"
+
+Request body (order-body.json):
+{
+  "studentId": 17,
+  "items": [
+    {
+      "itemId": 1,
+      "qty": 1
+    }
+  ],
+  "deliveryAddressId": 5,
+  "paymentMethodId": 2
+}
+
+Actual response:
+HTTP/1.1 201 CREATED
+Content-Type: application/json; charset=utf-8
+Content-Length: 134
+Location: /orders/1
+Cache-Control: no-store
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+X-Content-Type-Options: nosniff
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+{
+  "createdAt": "2026-10-12T13:24:04.230815+00:00",
+  "estimatedMinutes": 30,
+  "orderId": 1,
+  "status": "placed",
+  "total": 100
+}
+
+Observation:
+The order was created successfully. The server returned 201 Created, a Location header pointing to /orders/1, and a JSON representation of the new order.
+
+
+============================================================
+TEST 2: IDEMPOTENCY REPLAY — 200 OK
+============================================================
+
+Request:
+Repeat the same POST request with the same Idempotency-Key:
+a6-transcript-001
+
+Actual response:
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Length: 134
+Location: /orders/1
+Cache-Control: no-store
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+X-Content-Type-Options: nosniff
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+{
+  "createdAt": "2026-10-12T13:24:04.230815+00:00",
+  "estimatedMinutes": 30,
+  "orderId": 1,
+  "status": "placed",
+  "total": 100
+}
+
+Observation:
+The repeated request returned the original order instead of creating a duplicate. The order ID and creation timestamp remained unchanged.
+
+
+============================================================
+TEST 3: EMPTY CART VALIDATION — 422 UNPROCESSABLE ENTITY
+============================================================
+
+Request:
+POST /orders with an empty items array.
+
+Actual response:
+HTTP/1.1 422 UNPROCESSABLE ENTITY
+Content-Type: application/problem+json; charset=utf-8
+Content-Length: 133
+
+{
+  "detail": "An order must contain at least one item.",
+  "status": 422,
+  "title": "Empty cart",
+  "type": "/errors/empty-cart"
+}
+
+Observation:
+The server rejected an order with no items. It returned 422 with a Problem Details response and a stable error type.
+
+
+============================================================
+TEST 4: INVALID QUANTITY — 422 UNPROCESSABLE ENTITY
+============================================================
+
+Request body:
+{
+  "studentId": 17,
+  "items": [
+    {
+      "itemId": 1,
+      "qty": 0
+    }
+  ],
+  "deliveryAddressId": 5,
+  "paymentMethodId": 2
+}
+
+Actual response:
+HTTP/1.1 422 UNPROCESSABLE ENTITY
+Content-Type: application/problem+json; charset=utf-8
+Content-Length: 246
+
+{
+  "detail": "The request body failed validation.",
+  "errors": [
+    {
+      "field": "items[0].qty",
+      "message": "must be a positive integer"
+    }
+  ],
+  "status": 422,
+  "title": "Invalid request",
+  "type": "/errors/invalid-request"
+}
+
+Observation:
+A quantity of zero was rejected. The errors array identified the invalid field and explained the validation failure.
+
+
+============================================================
+TEST 5: UNKNOWN ORDER — 404 NOT FOUND
+============================================================
+
+Request:
+GET /orders/9999
+
+Command:
+curl.exe -i -H "Authorization: Bearer test-token" "http://127.0.0.1:8082/orders/9999"
+
+Actual response:
+HTTP/1.1 404 NOT FOUND
+Content-Type: application/problem+json; charset=utf-8
+Content-Length: 124
+
+{
+  "detail": "No order 9999 exists.",
+  "status": 404,
+  "title": "Order not found",
+  "type": "/errors/order-not-found"
+}
+
+Observation:
+The API returned 404 because the requested order did not exist. The response did not expose internal implementation details.
+
+
+============================================================
+TEST 6: ILLEGAL STATE TRANSITION — 409 CONFLICT
+============================================================
+
+Request:
+Cancel order 1 twice.
+
+The first cancellation returned:
+HTTP status: 202 ACCEPTED
+
+Response body:
+{
+  "orderId": 1,
+  "status": "cancelled"
+}
+
+The second cancellation returned:
+HTTP/1.1 409 CONFLICT
+Content-Type: application/problem+json; charset=utf-8
+Content-Length: 142
+
+{
+  "detail": "Order is already cancelled.",
+  "status": 409,
+  "title": "Illegal state transition",
+  "type": "/errors/illegal-transition"
+}
+
+Observation:
+The first cancellation succeeded. The second cancellation was rejected because the order was already cancelled. The API returned 409 Conflict with a stable Problem Details type.
+
+
+============================================================
+TEST 7: UNSUPPORTED ACCEPT HEADER — 406 NOT ACCEPTABLE
+============================================================
+
+Request:
+GET /orders with Accept: application/pdf
+
+Command:
+curl.exe -i -H "Accept: application/pdf" -H "Authorization: Bearer test-token" "http://127.0.0.1:8082/orders"
+
+Actual response:
+HTTP/1.1 406 NOT ACCEPTABLE
+Content-Type: application/problem+json; charset=utf-8
+Content-Length: 169
+
+{
+  "detail": "Supported response formats are application/json and application/xml.",
+  "status": 406,
+  "title": "Not acceptable",
+  "type": "/errors/not-acceptable"
+}
+
+Observation:
+The requested PDF representation was unsupported. The API returned 406 and identified JSON and XML as supported formats.
+
+
+============================================================
+TEST 8: XML RESPONSE NEGOTIATION — 200 OK
+============================================================
+
+Request:
+GET /orders with Accept: application/xml
+
+Command:
+curl.exe -i -H "Accept: application/xml" -H "Authorization: Bearer test-token" "http://127.0.0.1:8082/orders"
+
+Actual response:
+HTTP/1.1 200 OK
+Content-Type: application/xml; charset=utf-8
+Content-Length: 231
+Cache-Control: no-store
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+
+Actual response body:
+<?xml version='1.0' encoding='utf-8'?>
+<response><item><createdAt>2026-10-12T13:24:04.230815+00:00</createdAt><estimatedMinutes>30</estimatedMinutes><orderId>1</orderId><status>cancelled</status><total>100</total></item></response>
+
+Observation:
+The API returned XML when the client requested application/xml. The response contained the order representation and the correct Content-Type.
+
+
+============================================================
+TEST 9: CATALOGUE SERVICE UNAVAILABLE — 503 SERVICE UNAVAILABLE
+============================================================
+
+Precondition:
+The Catalogue Service was stopped temporarily while the Orders Service remained running.
+
+Request:
+POST /orders
+
+Command:
+curl.exe -i -X POST "http://127.0.0.1:8082/orders" -H "Content-Type: application/json" -H "Accept: application/json" -H "Authorization: Bearer test-token" -H "Idempotency-Key: a6-catalogue-down-002" --data-binary "@C:\Users\hp\Downloads\campuseats\order-body.json"
+
+Actual response:
+HTTP/1.1 503 SERVICE UNAVAILABLE
+Content-Type: application/problem+json; charset=utf-8
+Content-Length: 164
+Retry-After: 5
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+
+{
+  "detail": "The catalogue service is temporarily unavailable.",
+  "status": 503,
+  "title": "Catalogue unavailable",
+  "type": "/errors/catalogue-unavailable"
+}
+
+Observation:
+The Orders Service returned 503 when the Catalogue Service was unavailable. Retry-After: 5 advised the client to wait five seconds before retrying. Internal service details were not included in the response.
+
+After this test, the Catalogue Service was restarted.
+
+
+============================================================
+TEST 10: RATE LIMIT EXCEEDED — 429 TOO MANY REQUESTS
+============================================================
+
+Test configuration:
+RATE_LIMIT=2
+RATE_WINDOW=60 seconds
+
+The limit was temporarily reduced to two requests to test rate limiting. The first two requests returned 200 OK. The third request returned the following response.
+
+Request:
+GET /orders
+
+Actual response:
+HTTP/1.1 429 TOO MANY REQUESTS
+Content-Type: application/problem+json; charset=utf-8
+Content-Length: 129
+Retry-After: 10
+X-RateLimit-Limit: 2
+X-RateLimit-Remaining: 0
+
+{
+  "detail": "Rate limit exceeded.",
+  "status": 429,
+  "title": "Too many requests",
+  "type": "/errors/rate-limit-exceeded"
+}
+
+Observation:
+The API rejected the request after the temporary limit was exceeded. Retry-After: 10 instructed the client to wait ten seconds before retrying.
+
+Restoration verification:
+The normal rate limit was restored to 100.
+
+A subsequent GET /orders returned:
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+
+The normal configuration was therefore restored successfully.
+
+
+============================================================
+TEST 11: INTERNAL ERROR SANITIZATION — 500 INTERNAL SERVER ERROR
+============================================================
+
+Automated test:
+test_internal_error_response_is_sanitized
+
+Method:
+The test created a valid order, fetched its ETag, and simulated a RuntimeError during the order status update. The simulated exception contained the text:
+SECRET_DATABASE_PASSWORD
+
+Expected behavior:
+- HTTP status 500
+- Content-Type application/problem+json
+- Problem type /errors/internal-error
+- Status field 500
+- No secret database text in the response
+- No traceback in the response
+
+Automated verification:
+The test passed. The response did not expose the simulated secret or a traceback.
+
+Note:
+The exception was simulated in the test environment; this section records the automated test result rather than a separate curl response.
+
+
+============================================================
+AUTOMATED TEST SUITE
+============================================================
+
+Command:
+python -m pytest -v
+
+Final observed result:
+16 passed in 0.40s
+
+The following tests passed:
+1. test_create_order
+2. test_same_idempotency_key_returns_original
+3. test_invalid_request_returns_400
+4. test_unknown_order_returns_404
+5. test_missing_authorization_returns_401
+6. test_options_orders_returns_allow
+7. test_options_single_order_returns_allow
+8. test_get_order_returns_etag
+9. test_if_none_match_returns_304
+10. test_if_match_mismatch_returns_412
+11. test_if_match_correct_updates_order
+12. test_cors_headers_are_present
+13. test_security_headers_are_present
+14. test_unsupported_accept_returns_406
+15. test_rate_limit_headers_are_present
+16. test_internal_error_response_is_sanitized
+
+
+============================================================
+SUMMARY
+============================================================
+
+The observed tests verified successful order creation, idempotency replay, request validation, unknown-order handling, illegal state transitions, content negotiation, catalogue outage handling, rate limiting, and internal error sanitization.
+
+The Orders Service returned Problem Details responses for the tested failures, with application/problem+json and stable error types. The rate-limit test was performed with a temporary limit of two requests and the normal limit of 100 was restored afterward.
+
+End of transcript.

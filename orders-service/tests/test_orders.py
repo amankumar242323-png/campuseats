@@ -1,5 +1,4 @@
 ﻿import pytest
-
 import app as application
 import store
 
@@ -11,13 +10,11 @@ AUTH_HEADERS = {
 
 @pytest.fixture
 def client(monkeypatch):
-
     store._orders.clear()
     store._idempotency_keys.clear()
     store._next_id = 1
 
     def fake_check_item(item_id):
-
         return {
             "id": item_id,
             "name": "Veg Burger",
@@ -54,7 +51,6 @@ BODY = {
 # ============================================================
 
 def test_create_order(client):
-
     headers = {
         **AUTH_HEADERS,
         "Idempotency-Key": "test-order-1"
@@ -67,19 +63,15 @@ def test_create_order(client):
     )
 
     assert response.status_code == 201
-
     assert response.headers["Location"] == "/orders/1"
-
-    assert response.headers[
-        "Content-Type"
-    ].startswith("application/json")
+    assert response.headers["Content-Type"].startswith(
+        "application/json"
+    )
 
     data = response.get_json()
 
     assert data["orderId"] == 1
-
     assert data["status"] == "placed"
-
     assert data["total"] == 240
 
 
@@ -88,15 +80,10 @@ def test_create_order(client):
 # ============================================================
 
 def test_same_idempotency_key_returns_original(client, monkeypatch):
-
-    calls = {
-        "count": 0
-    }
+    calls = {"count": 0}
 
     def fake_check_item(item_id):
-
         calls["count"] += 1
-
         return {
             "id": item_id,
             "name": "Veg Burger",
@@ -128,15 +115,11 @@ def test_same_idempotency_key_returns_original(client, monkeypatch):
     )
 
     assert first.status_code == 201
-
     assert second.status_code == 200
-
     assert (
         first.get_json()["orderId"]
         == second.get_json()["orderId"]
     )
-
-    # Catalogue was checked only once.
     assert calls["count"] == 1
 
 
@@ -145,7 +128,6 @@ def test_same_idempotency_key_returns_original(client, monkeypatch):
 # ============================================================
 
 def test_invalid_request_returns_400(client):
-
     invalid_body = {
         "studentId": "17",
         "items": [],
@@ -153,26 +135,26 @@ def test_invalid_request_returns_400(client):
         "paymentMethodId": 2
     }
 
-    headers = {
-        **AUTH_HEADERS,
-        "Idempotency-Key": "invalid-order"
-    }
-
     response = client.post(
         "/orders",
         json=invalid_body,
-        headers=headers
+        headers={
+            **AUTH_HEADERS,
+            "Idempotency-Key": "invalid-order"
+        }
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 422
+    assert response.headers["Content-Type"].startswith(
+        "application/problem+json"
+    )
 
     data = response.get_json()
 
-    assert data["type"] == "/errors/invalid-request"
-
-    assert data["status"] == 400
-
-    assert "errors" in data
+    assert data["type"] == "/errors/empty-cart"
+    assert data["status"] == 422
+    assert data["title"] == "Empty cart"
+    assert "detail" in data
 
 
 # ============================================================
@@ -180,7 +162,6 @@ def test_invalid_request_returns_400(client):
 # ============================================================
 
 def test_unknown_order_returns_404(client):
-
     response = client.get(
         "/orders/999",
         headers=AUTH_HEADERS
@@ -191,7 +172,6 @@ def test_unknown_order_returns_404(client):
     data = response.get_json()
 
     assert data["type"] == "/errors/order-not-found"
-
     assert data["status"] == 404
 
 
@@ -200,17 +180,13 @@ def test_unknown_order_returns_404(client):
 # ============================================================
 
 def test_missing_authorization_returns_401(client):
-
-    response = client.get(
-        "/orders/1"
-    )
+    response = client.get("/orders/1")
 
     assert response.status_code == 401
 
     data = response.get_json()
 
     assert data["type"] == "/errors/unauthorized"
-
     assert data["status"] == 401
 
 
@@ -219,29 +195,17 @@ def test_missing_authorization_returns_401(client):
 # ============================================================
 
 def test_options_orders_returns_allow(client):
-
-    response = client.options(
-        "/orders"
-    )
+    response = client.options("/orders")
 
     assert response.status_code == 204
-
-    assert response.headers["Allow"] == (
-        "GET, POST, OPTIONS"
-    )
+    assert response.headers["Allow"] == "GET, POST, OPTIONS"
 
 
 def test_options_single_order_returns_allow(client):
-
-    response = client.options(
-        "/orders/1"
-    )
+    response = client.options("/orders/1")
 
     assert response.status_code == 204
-
-    assert response.headers["Allow"] == (
-        "GET, PATCH, OPTIONS"
-    )
+    assert response.headers["Allow"] == "GET, PATCH, OPTIONS"
 
 
 # ============================================================
@@ -249,33 +213,28 @@ def test_options_single_order_returns_allow(client):
 # ============================================================
 
 def test_get_order_returns_etag(client):
-
-    create_headers = {
-        **AUTH_HEADERS,
-        "Idempotency-Key": "etag-order"
-    }
-
     create_response = client.post(
         "/orders",
         json=BODY,
-        headers=create_headers
+        headers={
+            **AUTH_HEADERS,
+            "Idempotency-Key": "etag-order"
+        }
     )
 
     assert create_response.status_code == 201
 
-    get_response = client.get(
+    response = client.get(
         "/orders/1",
         headers=AUTH_HEADERS
     )
 
-    assert get_response.status_code == 200
+    assert response.status_code == 200
+    assert "ETag" in response.headers
 
-    assert "ETag" in get_response.headers
-
-    etag = get_response.headers["ETag"]
+    etag = response.headers["ETag"]
 
     assert etag.startswith('"')
-
     assert etag.endswith('"')
 
 
@@ -284,22 +243,21 @@ def test_get_order_returns_etag(client):
 # ============================================================
 
 def test_if_none_match_returns_304(client):
-
-    create_headers = {
-        **AUTH_HEADERS,
-        "Idempotency-Key": "conditional-order"
-    }
-
     client.post(
         "/orders",
         json=BODY,
-        headers=create_headers
+        headers={
+            **AUTH_HEADERS,
+            "Idempotency-Key": "conditional-order"
+        }
     )
 
     first_get = client.get(
         "/orders/1",
         headers=AUTH_HEADERS
     )
+
+    assert first_get.status_code == 200
 
     etag = first_get.headers["ETag"]
 
@@ -312,9 +270,7 @@ def test_if_none_match_returns_304(client):
     )
 
     assert second_get.status_code == 304
-
     assert second_get.data == b""
-
     assert second_get.headers["ETag"] == etag
 
 
@@ -323,23 +279,18 @@ def test_if_none_match_returns_304(client):
 # ============================================================
 
 def test_if_match_mismatch_returns_412(client):
-
-    create_headers = {
-        **AUTH_HEADERS,
-        "Idempotency-Key": "write-order"
-    }
-
     client.post(
         "/orders",
         json=BODY,
-        headers=create_headers
+        headers={
+            **AUTH_HEADERS,
+            "Idempotency-Key": "write-order"
+        }
     )
 
     response = client.patch(
         "/orders/1",
-        json={
-            "status": "cancelled"
-        },
+        json={"status": "cancelled"},
         headers={
             **AUTH_HEADERS,
             "Content-Type": "application/json",
@@ -352,7 +303,6 @@ def test_if_match_mismatch_returns_412(client):
     data = response.get_json()
 
     assert data["type"] == "/errors/precondition-failed"
-
     assert data["status"] == 412
 
 
@@ -361,16 +311,13 @@ def test_if_match_mismatch_returns_412(client):
 # ============================================================
 
 def test_if_match_correct_updates_order(client):
-
-    create_headers = {
-        **AUTH_HEADERS,
-        "Idempotency-Key": "successful-update"
-    }
-
     client.post(
         "/orders",
         json=BODY,
-        headers=create_headers
+        headers={
+            **AUTH_HEADERS,
+            "Idempotency-Key": "successful-update"
+        }
     )
 
     get_response = client.get(
@@ -378,13 +325,12 @@ def test_if_match_correct_updates_order(client):
         headers=AUTH_HEADERS
     )
 
+    assert get_response.status_code == 200
     etag = get_response.headers["ETag"]
 
     update_response = client.patch(
         "/orders/1",
-        json={
-            "status": "cancelled"
-        },
+        json={"status": "cancelled"},
         headers={
             **AUTH_HEADERS,
             "Content-Type": "application/json",
@@ -397,15 +343,9 @@ def test_if_match_correct_updates_order(client):
     data = update_response.get_json()
 
     assert data["orderId"] == 1
-
     assert data["status"] == "cancelled"
-
     assert "ETag" in update_response.headers
-
-    assert (
-        update_response.headers["ETag"]
-        != etag
-    )
+    assert update_response.headers["ETag"] != etag
 
 
 # ============================================================
@@ -413,24 +353,11 @@ def test_if_match_correct_updates_order(client):
 # ============================================================
 
 def test_cors_headers_are_present(client):
-
-    response = client.get(
-        "/health"
-    )
+    response = client.get("/health")
 
     assert response.status_code == 200
-
-    assert (
-        response.headers["Access-Control-Allow-Origin"]
-        == "*"
-    )
-
-    assert (
-        "GET"
-        in response.headers[
-            "Access-Control-Allow-Methods"
-        ]
-    )
+    assert response.headers["Access-Control-Allow-Origin"] == "*"
+    assert "GET" in response.headers["Access-Control-Allow-Methods"]
 
 
 # ============================================================
@@ -438,24 +365,12 @@ def test_cors_headers_are_present(client):
 # ============================================================
 
 def test_security_headers_are_present(client):
+    response = client.get("/health")
 
-    response = client.get(
-        "/health"
-    )
-
-    assert (
-        response.headers[
-            "X-Content-Type-Options"
-        ]
-        == "nosniff"
-    )
-
-    assert (
-        "max-age=31536000"
-        in response.headers[
-            "Strict-Transport-Security"
-        ]
-    )
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert "max-age=31536000" in response.headers[
+        "Strict-Transport-Security"
+    ]
 
 
 # ============================================================
@@ -463,12 +378,9 @@ def test_security_headers_are_present(client):
 # ============================================================
 
 def test_unsupported_accept_returns_406(client):
-
     response = client.get(
         "/health",
-        headers={
-            "Accept": "text/html"
-        }
+        headers={"Accept": "text/html"}
     )
 
     assert response.status_code == 406
@@ -479,11 +391,67 @@ def test_unsupported_accept_returns_406(client):
 # ============================================================
 
 def test_rate_limit_headers_are_present(client):
-
-    response = client.get(
-        "/health"
-    )
+    response = client.get("/health")
 
     assert "X-RateLimit-Limit" in response.headers
-
     assert "X-RateLimit-Remaining" in response.headers
+
+
+# ============================================================
+# INTERNAL ERROR SANITIZATION
+# ============================================================
+
+def test_internal_error_response_is_sanitized(client):
+    from unittest.mock import patch
+
+    # Create a valid order.
+    create_response = client.post(
+        "/orders",
+        json=BODY,
+        headers={
+            **AUTH_HEADERS,
+            "Idempotency-Key": "internal-error-test-order"
+        }
+    )
+
+    assert create_response.status_code == 201
+
+    # Fetch the current ETag required by PATCH.
+    get_response = client.get(
+        "/orders/1",
+        headers=AUTH_HEADERS
+    )
+
+    assert get_response.status_code == 200
+    etag = get_response.headers["ETag"]
+
+    # Simulate an internal failure during status update.
+    with patch(
+        "app.store.update_order_status",
+        side_effect=RuntimeError("SECRET_DATABASE_PASSWORD")
+    ):
+        response = client.patch(
+            "/orders/1",
+            json={"status": "cancelled"},
+            headers={
+                **AUTH_HEADERS,
+                "Content-Type": "application/json",
+                "If-Match": etag
+            }
+        )
+
+    assert response.status_code == 500
+
+    assert response.headers["Content-Type"].startswith(
+        "application/problem+json"
+    )
+
+    data = response.get_json()
+
+    assert data["type"] == "/errors/internal-error"
+    assert data["status"] == 500
+
+    response_text = response.get_data(as_text=True)
+
+    assert "SECRET_DATABASE_PASSWORD" not in response_text
+    assert "Traceback" not in response_text

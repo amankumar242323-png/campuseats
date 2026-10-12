@@ -1,6 +1,7 @@
-import hashlib
+﻿import hashlib
 import json
 import os
+import re
 import time
 
 from flask import Flask, jsonify, make_response, request
@@ -42,22 +43,84 @@ def is_json_request() -> bool:
     )
 
 
-def accepts_json() -> bool:
-    accept = request.headers.get("Accept")
+def accepted_format():
+    """Choose JSON or XML based on the Accept header."""
+    accept = request.headers.get("Accept", "").strip()
 
-    if not accept:
-        return True
+    if not accept or accept == "*/*":
+        return "json"
 
-    accepted_types = [
-        item.strip().split(";", 1)[0]
-        for item in accept.split(",")
-    ]
-
-    return (
-        "*/*" in accepted_types
-        or "application/json" in accepted_types
-        or "application/*+json" in accepted_types
+    best = request.accept_mimetypes.best_match(
+        ["application/json", "application/xml", "text/xml"]
     )
+
+    if best is None or request.accept_mimetypes[best] == 0:
+        return None
+
+    return "xml" if best in {"application/xml", "text/xml"} else "json"
+
+
+def to_xml(value, root_name="response"):
+    """Convert JSON-compatible data into XML."""
+    from xml.etree.ElementTree import Element, SubElement, tostring
+
+    def append_value(parent, key, item):
+        safe_key = re.sub(r"[^A-Za-z0-9_.-]", "_", str(key))
+
+        if not safe_key or (
+            not safe_key[0].isalpha() and safe_key[0] != "_"
+        ):
+            safe_key = f"item_{safe_key}"
+
+        node = SubElement(parent, safe_key)
+
+        if isinstance(item, dict):
+            for child_key, child_value in item.items():
+                append_value(node, child_key, child_value)
+        elif isinstance(item, list):
+            for child in item:
+                append_value(node, "item", child)
+        elif item is None:
+            node.text = ""
+        else:
+            node.text = str(item)
+
+    root = Element(root_name)
+
+    if isinstance(value, dict):
+        for key, item in value.items():
+            append_value(root, key, item)
+    elif isinstance(value, list):
+        for item in value:
+            append_value(root, "item", item)
+    else:
+        root.text = str(value)
+
+    return tostring(root, encoding="unicode", xml_declaration=True)
+
+
+def negotiate_success_response(response):
+    """Convert successful JSON responses to XML when requested."""
+    if (
+        getattr(request, "response_format", "json") == "xml"
+        and response.status_code < 400
+        and response.mimetype == "application/json"
+        and response.get_data()
+    ):
+        try:
+            payload = response.get_json()
+            response.set_data(to_xml(payload))
+            response.headers["Content-Type"] = (
+                "application/xml; charset=utf-8"
+            )
+        except (ValueError, TypeError):
+            return problem(
+                500,
+                "internal-error",
+                "The response could not be serialized.",
+            )
+
+    return response
 
 
 def calculate_etag(order) -> str:
@@ -103,10 +166,7 @@ def check_rate_limit():
     record = _rate_limits.get(client)
 
     if record is None or now - float(record["start"]) >= RATE_WINDOW:
-        record = {
-            "start": now,
-            "count": 0,
-        }
+        record = {"start": now, "count": 0}
         _rate_limits[client] = record
 
     record["count"] = int(record["count"]) + 1
@@ -117,12 +177,12 @@ def check_rate_limit():
             1,
             int(RATE_WINDOW - (now - float(record["start"]))),
         )
-        response, status = problem(
+
+        response = problem(
             429,
             "rate-limit-exceeded",
             "Rate limit exceeded.",
         )
-        response.status_code = status
         response.headers["Retry-After"] = str(retry_after)
         response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT)
         response.headers["X-RateLimit-Remaining"] = "0"
@@ -165,12 +225,16 @@ def before_request_checks():
     if request.method == "OPTIONS":
         return options_response_for_path()
 
-    if not accepts_json():
+    response_format = accepted_format()
+
+    if response_format is None:
         return problem(
             406,
             "not-acceptable",
-            "Only application/json responses are supported.",
+            "Supported response formats are application/json and application/xml.",
         )
+
+    request.response_format = response_format
 
     if request.path.startswith("/orders"):
         auth_error = require_authorization()
@@ -188,12 +252,21 @@ def before_request_checks():
 
 @app.after_request
 def add_response_headers(response):
-    if (
-        response.status_code not in (204, 304)
-        and response.get_data()
-        and response.mimetype == "application/json"
-    ):
-        response.headers["Content-Type"] = "application/json"
+    response = negotiate_success_response(response)
+
+    if response.status_code not in (204, 304) and response.get_data():
+        if response.mimetype == "application/json":
+            response.headers["Content-Type"] = (
+                "application/json; charset=utf-8"
+            )
+        elif response.mimetype == "application/problem+json":
+            response.headers["Content-Type"] = (
+                "application/problem+json; charset=utf-8"
+            )
+        elif response.mimetype in {"application/xml", "text/xml"}:
+            response.headers["Content-Type"] = (
+                "application/xml; charset=utf-8"
+            )
 
     rate_info = getattr(request, "rate_limit", None)
 
@@ -235,19 +308,34 @@ def health():
 def create_order():
     if not is_json_request():
         return problem(
-            400,
-            "invalid-request",
+            415,
+            "unsupported-media-type",
             "Content-Type must be application/json.",
         )
 
     body = request.get_json(silent=True)
+
+    if body is None:
+        return problem(
+            400,
+            "invalid-request",
+            "Request body must be valid JSON.",
+        )
+
+    if isinstance(body, dict) and body.get("items") == []:
+        return problem(
+            422,
+            "empty-cart",
+            "An order must contain at least one item.",
+        )
+
     errors = validate_place_order(body)
 
     if errors:
         return problem(
-            400,
+            422,
             "invalid-request",
-            "The request body is invalid.",
+            "The request body failed validation.",
             errors,
         )
 
@@ -275,7 +363,9 @@ def create_order():
         for item in body["items"]:
             catalogue_item = check_item(item["itemId"])
             quantity = item["qty"]
+
             total += int(round(catalogue_item["price"] * quantity))
+
             checked_items.append({
                 "itemId": catalogue_item["id"],
                 "name": catalogue_item["name"],
@@ -283,27 +373,53 @@ def create_order():
                 "unitPrice": catalogue_item["price"],
             })
 
-    except ItemUnavailable as exc:
-        return problem(422, "item-unavailable", str(exc))
+    except ItemUnavailable:
+        return problem(
+            422,
+            "item-unavailable",
+            "The requested item is unavailable.",
+        )
 
-    except CatalogueItemNotFound as exc:
-        return problem(422, "item-unavailable", str(exc))
+    except CatalogueItemNotFound:
+        return problem(
+            422,
+            "item-unavailable",
+            "The requested catalogue item was not found.",
+        )
 
-    except CatalogueRejected as exc:
-        return problem(400, "invalid-request", str(exc))
+    except CatalogueRejected:
+        return problem(
+            400,
+            "invalid-request",
+            "The catalogue rejected the request.",
+        )
 
-    except CatalogueUnavailable as exc:
-        return problem(503, "catalogue-unavailable", str(exc))
+    except CatalogueUnavailable:
+        response = problem(
+            503,
+            "catalogue-unavailable",
+            "The catalogue service is temporarily unavailable.",
+        )
+        response.headers["Retry-After"] = "5"
+        return response
 
-    order = store.create_order(
-        student_id=body["studentId"],
-        items=checked_items,
-        delivery_address_id=body["deliveryAddressId"],
-        payment_method_id=body["paymentMethodId"],
-        total=total,
-        status="placed",
-        idempotency_key=key,
-    )
+    try:
+        order = store.create_order(
+            student_id=body["studentId"],
+            items=checked_items,
+            delivery_address_id=body["deliveryAddressId"],
+            payment_method_id=body["paymentMethodId"],
+            total=total,
+            status="placed",
+            idempotency_key=key,
+        )
+    except Exception:
+        app.logger.exception("Failed to create order")
+        return problem(
+            500,
+            "internal-error",
+            "The order could not be created.",
+        )
 
     response = json_response(order.as_json(), 201)
     response.headers["Location"] = f"/orders/{order.id}"
@@ -343,13 +459,16 @@ def get_order(order_id):
         return problem(
             404,
             "order-not-found",
-            f"No order {order_id}",
+            f"No order {order_id} exists.",
         )
 
     etag = calculate_etag(order)
     if_none_match = request.headers.get("If-None-Match", "").strip()
 
-    if if_none_match == "*" or if_none_match.strip('"') == etag.strip('"'):
+    if (
+        if_none_match == "*"
+        or if_none_match.strip('"') == etag.strip('"')
+    ):
         response = make_response("", 304)
         response.headers["ETag"] = etag
         response.headers["Cache-Control"] = "no-store"
@@ -369,7 +488,7 @@ def update_order_status(order_id):
         return problem(
             404,
             "order-not-found",
-            f"No order {order_id}",
+            f"No order {order_id} exists.",
         )
 
     etag = calculate_etag(order)
@@ -384,8 +503,8 @@ def update_order_status(order_id):
 
     if not is_json_request():
         return problem(
-            400,
-            "invalid-request",
+            415,
+            "unsupported-media-type",
             "Content-Type must be application/json.",
         )
 
@@ -393,32 +512,52 @@ def update_order_status(order_id):
 
     if not isinstance(body, dict):
         return problem(
-            400,
+            422,
             "invalid-request",
-            "Request body must be a JSON object.",
+            "Request body must be a valid JSON object.",
+            [{"field": "body", "message": "A JSON object is required."}],
         )
 
     new_status = body.get("status")
 
     if new_status not in {"placed", "cancelled"}:
         return problem(
-            400,
+            422,
             "invalid-request",
             "Status must be 'placed' or 'cancelled'.",
+            [{"field": "status", "message": "Must be 'placed' or 'cancelled'."}],
         )
 
-    store.update_order_status(order, new_status)
-    new_etag = calculate_etag(order)
+    if new_status != order.status and not (
+        order.status == "placed" and new_status == "cancelled"
+    ):
+        return problem(
+            409,
+            "illegal-transition",
+            f"Cannot change order status from '{order.status}' to '{new_status}'.",
+        )
+
+    try:
+        store.update_order_status(order, new_status)
+    except Exception:
+        app.logger.exception("Failed to update order status")
+        return problem(
+            500,
+            "internal-error",
+            "The order status could not be updated.",
+        )
 
     response = json_response(order.as_json())
-    response.headers["ETag"] = new_etag
+    response.headers["ETag"] = calculate_etag(order)
     response.headers["Cache-Control"] = "no-store"
     return response
 
 
 @app.post("/orders/<int:order_id>")
 def method_override(order_id):
-    override = request.headers.get("X-HTTP-Method-Override", "").upper()
+    override = request.headers.get(
+        "X-HTTP-Method-Override", ""
+    ).upper()
 
     if override == "PATCH":
         return update_order_status(order_id)
@@ -438,17 +577,25 @@ def cancel_order(order_id):
         return problem(
             404,
             "order-not-found",
-            f"No order {order_id}",
+            f"No order {order_id} exists.",
         )
 
     if order.status != "placed":
         return problem(
             409,
-            "not-cancellable",
+            "illegal-transition",
             f"Order is already {order.status}.",
         )
 
-    store.cancel_order(order)
+    try:
+        store.cancel_order(order)
+    except Exception:
+        app.logger.exception("Failed to cancel order")
+        return problem(
+            500,
+            "internal-error",
+            "The order could not be cancelled.",
+        )
 
     response = json_response({
         "orderId": order.id,
@@ -497,6 +644,25 @@ def not_acceptable(error):
         406,
         "not-acceptable",
         "Requested response format is not supported.",
+    )
+
+
+@app.errorhandler(415)
+def unsupported_media_type(error):
+    return problem(
+        415,
+        "unsupported-media-type",
+        "Request Content-Type is not supported.",
+    )
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    app.logger.error("Unhandled server error: %s", error)
+    return problem(
+        500,
+        "internal-error",
+        "An unexpected server error occurred.",
     )
 
 
