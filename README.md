@@ -80,15 +80,16 @@ The project includes a Flask-based Orders Service, a Catalogue Service, and a Gr
 - Developed a plain HTML/CSS frontend that fetches and displays dishes and allows users to add dishes.
 - Tested queries and mutations against the database.
 - Captured before-and-after screenshots in `graphql-service/screenshots/`.
+- **Demo video and screenshots:** [Open Google Drive Folder](https://drive.google.com/drive/folders/1a6bj93E36AmXmM5u7OUYTuO1Yu8kmRgi?usp=sharing).
 
 ## Services
 
 | Service | Local URL | Port |
 |---|---|---:|
-| Catalogue Service | http://127.0.0.1:8081 | 8081 |
-| Orders Service | http://127.0.0.1:8082 | 8082 |
-| GraphQL Menu Service | http://localhost:4000/ | 4000 |
-| GraphQL endpoint | http://localhost:4000/graphql | 4000 |
+| Catalogue Service | `http://127.0.0.1:8081` | 8081 |
+| Orders Service | `http://127.0.0.1:8082` | 8082 |
+| GraphQL Menu Service | `http://localhost:4000/` | 4000 |
+| GraphQL endpoint | `http://localhost:4000/graphql` | 4000 |
 
 ## Technologies Used
 
@@ -155,11 +156,11 @@ Enter your MySQL root password when prompted. Keep the terminal running.
 
 Open the frontend at:
 
-http://localhost:4000/
+`http://localhost:4000/`
 
 The GraphQL endpoint is:
 
-http://localhost:4000/graphql
+`http://localhost:4000/graphql`
 
 **Security note:** Set the database password through the environment variable. Do not commit passwords or other secrets to GitHub.
 
