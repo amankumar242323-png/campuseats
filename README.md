@@ -11,9 +11,9 @@
 
 ## Project Overview
 
-CampusEats is a web services project that demonstrates HTTP communication, REST APIs, service integration, SOAP contracts, request validation, API documentation, and error handling.
+CampusEats is a web services project demonstrating HTTP communication, REST APIs, SOAP contracts, service integration, database connectivity, GraphQL APIs, request validation, API documentation, and error handling.
 
-The project consists of a Flask-based Orders Service and a Catalogue Service. It explores HTTP methods, status codes, request and response headers, API contracts, automated testing, and reliable service communication.
+The project includes a Flask-based Orders Service, a Catalogue Service, and a GraphQL-based Menu/Dishes service connected to MySQL.
 
 ## Assignments
 
@@ -26,7 +26,7 @@ The project consists of a Flask-based Orders Service and a Catalogue Service. It
 ### Assignment 2: Services, Contracts & Schema
 
 - Designed the service architecture and database schema.
-- Created service architecture and schema diagrams.
+- Created architecture and schema diagrams.
 - Prepared SQL schema documentation.
 - Documented the design in `design.pdf` and `schema.sql`.
 
@@ -60,15 +60,26 @@ The project consists of a Flask-based Orders Service and a Catalogue Service. It
 - Implemented a shared `problem()` helper for consistent Problem Details responses.
 - Used `application/problem+json; charset=utf-8` for error responses.
 - Added stable error types, including `empty-cart`, `order-not-found`, `illegal-transition`, and `catalogue-unavailable`.
-- Added field-level validation errors using the `errors[]` array and HTTP `422 Unprocessable Content` responses.
-- Improved request validation for order items, quantities, and required fields.
+- Added field-level validation errors using the `errors[]` array and HTTP `422` responses.
+- Improved validation for order items, quantities, and required fields.
 - Added safer error handling to avoid exposing internal exception details.
-- Implemented JSON and XML response negotiation using the `Accept` header, with `406 Not Acceptable` for unsupported response formats.
+- Implemented JSON and XML response negotiation using the `Accept` header.
 - Added `Retry-After` headers to rate-limit and temporary service-unavailability responses.
-- Updated `openapi.yaml` to document API responses and Problem Details.
-- Added `transcript.txt` with HTTP request and response examples.
-- Updated `NOTES.md` with status-code decisions, error handling, validation, and retry safety.
+- Updated `orders-service/openapi.yaml`, `transcript.txt`, and `NOTES.md`.
 - Verified the Orders Service automated tests: **16 tests passed**.
+
+### Assignment 7: GraphQL Service
+
+- Created a GraphQL API for the CampusEats Menu/Dishes entity using Apollo Server.
+- Defined the `Dish` object type, queries, and mutation in `schema.graphql`.
+- Connected GraphQL resolvers to MySQL using `mysql2`.
+- Created the `campuseats_graphql` database and `dishes` table with sample records.
+- Implemented the `dishes` query to list dishes.
+- Implemented the `dish(id)` query to retrieve a dish by ID.
+- Implemented the `addDish` mutation to insert a new dish into MySQL.
+- Developed a plain HTML/CSS frontend that fetches and displays dishes and allows users to add dishes.
+- Tested queries and mutations against the database.
+- Captured before-and-after screenshots in `graphql-service/screenshots/`.
 
 ## Services
 
@@ -76,24 +87,28 @@ The project consists of a Flask-based Orders Service and a Catalogue Service. It
 |---|---|---:|
 | Catalogue Service | http://127.0.0.1:8081 | 8081 |
 | Orders Service | http://127.0.0.1:8082 | 8082 |
+| GraphQL Menu Service | http://localhost:4000/ | 4000 |
+| GraphQL endpoint | http://localhost:4000/graphql | 4000 |
 
 ## Technologies Used
 
-- **Programming language:** Python
-- **Web framework:** Flask
-- **Communication:** HTTP and REST APIs
-- **Service integration:** HTTP requests between services
-- **API documentation:** OpenAPI / YAML
-- **Web service contract:** SOAP / WSDL
+- **Programming languages:** Python, JavaScript, SQL
+- **Web framework:** Flask, Express
+- **GraphQL:** Apollo Server, GraphQL
+- **Database:** MySQL
+- **Database driver:** `mysql2`
+- **Communication:** HTTP, REST APIs, GraphQL, SOAP
+- **API documentation:** OpenAPI / YAML, WSDL
 - **Testing:** pytest and curl
 - **Data formats:** JSON and XML
+- **Frontend:** HTML and CSS
 - **Version control:** Git and GitHub
 
 ## Running the Project
 
 ### 1. Start the Catalogue Service
 
-Open a terminal and run:
+Open a terminal:
 
 ```bash
 cd catalogue-service
@@ -105,7 +120,7 @@ The Catalogue Service runs at `http://127.0.0.1:8081`.
 
 ### 2. Start the Orders Service
 
-Open another terminal and run:
+Open another terminal:
 
 ```bash
 cd orders-service
@@ -115,31 +130,38 @@ python app.py
 
 The Orders Service runs at `http://127.0.0.1:8082`.
 
-### 3. Run the Orders Service Tests
-
-Open another terminal:
+### 3. Run Orders Service Tests
 
 ```bash
 cd orders-service
 python -m pytest -v
 ```
 
-The Assignment 6 test run completed successfully with **16 passed**.
+The recorded Assignment 6 test run completed with **16 passed**.
 
-### 4. Test the API with curl
+### 4. Start the GraphQL Menu Service
 
-Create an order using a valid request body and the required headers:
+Ensure MySQL is running and the `campuseats_graphql` database has been created using `graphql-service/schema.sql`.
 
-```bash
-curl -i -X POST http://127.0.0.1:8082/orders \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer test-token" \
-  -H "Idempotency-Key: order-demo-001" \
-  --data-binary "@order-body.json"
+Open a PowerShell terminal:
+
+```powershell
+cd graphql-service
+$env:DB_PASSWORD = Read-Host "Enter your MySQL root password"
+node server.js
 ```
 
-The request body must match the Orders Service validation rules, and the referenced catalogue item must be available.
+Enter your MySQL root password when prompted. Keep the terminal running.
+
+Open the frontend at:
+
+http://localhost:4000/
+
+The GraphQL endpoint is:
+
+http://localhost:4000/graphql
+
+**Security note:** Set the database password through the environment variable. Do not commit passwords or other secrets to GitHub.
 
 ## Main Orders Endpoints
 
@@ -152,7 +174,66 @@ The request body must match the Orders Service validation rules, and the referen
 | POST | `/orders/{id}/cancellation` | Cancel an order |
 | OPTIONS | `/orders` | Discover supported methods |
 
-Refer to `orders-service/openapi.yaml` for the documented API contract, parameters, response formats, and status codes.
+Refer to `orders-service/openapi.yaml` for the documented API contract and response status codes.
+
+## GraphQL API
+
+The GraphQL service provides the following operations.
+
+### List dishes
+
+```graphql
+query {
+  dishes {
+    id
+    name
+    price
+    available
+  }
+}
+```
+
+### Retrieve a dish by ID
+
+```graphql
+query {
+  dish(id: 1) {
+    id
+    name
+    price
+    available
+  }
+}
+```
+
+### Add a dish
+
+```graphql
+mutation {
+  addDish(input: { name: "Paneer Roll", price: 90 }) {
+    id
+    name
+    price
+    available
+  }
+}
+```
+
+The `dishes` query retrieves all dishes. The `dish` query retrieves a single dish by ID. The `addDish` mutation inserts a dish into the MySQL database.
+
+## Assignment 7: README Questions
+
+### 1. Which CampusEats service did you pick?
+
+We selected the Menu/Dishes service from CampusEats and exposed it through a GraphQL API.
+
+### 2. Name one field a client can skip and one it cannot. Why do we use `!`?
+
+A client can skip `available` in its selection set when it does not need that field. The `name` field is declared as `String!`, meaning it cannot be null in a valid `Dish` result. The `!` symbol marks a field or input as non-null.
+
+### 3. Map the GraphQL operations to SQL.
+
+The `dish(id: ID!)` resolver uses a parameterized SQL query with `WHERE id = ?` to retrieve the requested dish. The `addDish` mutation resolver executes an `INSERT INTO dishes` statement to add a new record.
 
 ## Error Handling and Validation
 
@@ -188,33 +269,24 @@ Important status codes include:
 | 500 | Internal server error |
 | 503 | Temporary service unavailability |
 
-The exact response depends on the endpoint and the failure condition.
-
 ## Project Structure
 
 ```text
 campuseats/
 ├── catalogue-service/
-│   ├── app.py
-│   ├── errors.py
-│   ├── models.py
-│   ├── store.py
-│   ├── requirements.txt
-│   ├── openapi.yaml
-│   ├── NOTES.md
-│   └── tests/
 ├── orders-service/
-│   ├── app.py
-│   ├── errors.py
-│   ├── catalogue_client.py
-│   ├── models.py
-│   ├── store.py
-│   ├── validation.py
-│   ├── requirements.txt
-│   ├── openapi.yaml
-│   ├── NOTES.md
-│   ├── transcript.txt
-│   └── tests/
+├── graphql-service/
+│   ├── db.js
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── schema.graphql
+│   ├── schema.sql
+│   ├── server.js
+│   ├── public/
+│   │   └── index.html
+│   └── screenshots/
+│       ├── before.png
+│       └── after.png
 ├── brief.md
 ├── design.pdf
 ├── http-log.md
@@ -229,10 +301,11 @@ campuseats/
 
 ## Limitations
 
-- Order data is stored in memory and may be lost when the service restarts.
+- Orders are stored in memory and may be lost when the Orders Service restarts.
 - Bearer header validation is demonstrative and does not provide full authentication.
+- The GraphQL service requires a running MySQL server and a configured database password.
 - The project is intended for educational purposes and is not a production-ready ordering platform.
 
 ## Conclusion
 
-CampusEats demonstrates practical concepts in HTTP, REST APIs, SOAP contracts, service-to-service communication, API documentation, request validation, consistent error responses, automated testing, and advanced HTTP features. Across six assignments, the project progressively develops a better understanding of web service design and implementation.
+Across seven assignments, CampusEats demonstrates practical concepts in HTTP, REST APIs, SOAP contracts, service-to-service communication, database integration, GraphQL queries and mutations, API documentation, request validation, error handling, and automated testing.
