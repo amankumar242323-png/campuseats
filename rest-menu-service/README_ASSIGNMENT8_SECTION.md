@@ -1,3 +1,11 @@
+## Team Details
+
+**Group ID:** 02
+
+1. Aman Kumar — 20251651017
+2. Srikanta Nayak — 20251651090
+3. Aditya Verma — 20251651009
+4. Pratik Sinha — 20251651071
 ## Assignment 8: REST Menu Service
 
 We selected the CampusEats Menu/Catalogue service and implemented it as a REST API using Node.js and Express.
