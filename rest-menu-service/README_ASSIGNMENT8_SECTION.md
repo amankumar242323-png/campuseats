@@ -37,11 +37,8 @@ npm start
 
 Open `http://localhost:3000/`.
 
-### Screenshots
+### Demo Video and Screenshots
 
-- Before POST: `rest-menu-service/screenshots/before.png`
-- After POST: `rest-menu-service/screenshots/after.png`
-
-### Demo Video
-
-Add the Google Drive link after uploading the Assignment 8 demonstration video.
+- **Assignment 8 Demo Video:** [Watch Demo / Open Google Drive Folder](https://drive.google.com/drive/folders/1GRYleDmb1VKBoqZ4Id442HeF4Ktoca6v?usp=sharing)
+- **Before Screenshot:** `rest-menu-service/screenshots/before.png`
+- **After Screenshot:** `rest-menu-service/screenshots/after.png`
