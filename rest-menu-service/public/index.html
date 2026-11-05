@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusEats Menu</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <p class="eyebrow">CAMPUS EATS</p>
+      <h1>Menu Catalogue</h1>
+      <p class="subtitle">Browse dishes and add a new menu item.</p>
+    </header>
+    <section class="panel">
+      <div class="section-heading"><h2>Menu items</h2><button id="refreshButton" class="secondary" type="button">Refresh</button></div>
+      <p id="status" class="status" aria-live="polite">Loading menu...</p>
+      <div id="items" class="items"></div>
+    </section>
+    <section class="panel">
+      <h2>Add a dish</h2>
+      <form id="itemForm">
+        <label>Dish name<input id="name" type="text" placeholder="e.g. Chocolate Sandwich" required></label>
+        <label>Price (₹)<input id="price" type="number" min="1" step="0.01" placeholder="e.g. 110" required></label>
+        <label class="checkbox"><input id="available" type="checkbox" checked> Available</label>
+        <button type="submit">Add dish</button>
+      </form>
+      <p id="formMessage" class="form-message" aria-live="polite"></p>
+    </section>
+  </main>
+<script>
+const itemsContainer = document.getElementById("items");
+const statusMessage = document.getElementById("status");
+const form = document.getElementById("itemForm");
+const formMessage = document.getElementById("formMessage");
+
+async function loadItems() {
+  statusMessage.textContent = "Loading menu...";
+  try {
+    const response = await fetch("/items");
+    const items = await response.json();
+    if (!response.ok) throw new Error(items.error || "Could not load menu");
+    itemsContainer.innerHTML = "";
+    items.forEach(item => {
+      const card = document.createElement("article");
+      card.className = "item-card";
+      const name = document.createElement("h3");
+      name.textContent = item.name;
+      const price = document.createElement("p");
+      price.className = "price";
+      price.textContent = `₹${Number(item.price).toFixed(2)}`;
+      const availability = document.createElement("span");
+      availability.className = item.available ? "available" : "unavailable";
+      availability.textContent = item.available ? "Available" : "Unavailable";
+      const id = document.createElement("small");
+      id.textContent = `Item #${item.id}`;
+      card.append(name, price, availability, id);
+      itemsContainer.appendChild(card);
+    });
+    statusMessage.textContent = `${items.length} menu item(s) loaded.`;
+  } catch (error) { statusMessage.textContent = error.message; }
+}
+
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  formMessage.textContent = "Adding dish...";
+  const payload = {
+    name: document.getElementById("name").value,
+    price: Number(document.getElementById("price").value),
+    available: document.getElementById("available").checked
+  };
+  try {
+    const response = await fetch("/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+    form.reset();
+    document.getElementById("available").checked = true;
+    formMessage.textContent = `Added ${result.name} successfully (ID: ${result.id}).`;
+    await loadItems();
+  } catch (error) { formMessage.textContent = error.message; }
+});
+document.getElementById("refreshButton").addEventListener("click", loadItems);
+loadItems();
+</script>
+</body>
+</html>
