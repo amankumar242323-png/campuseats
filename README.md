@@ -1,14 +1,12 @@
-# CampusEats – Web Services Project
+﻿# CampusEats â€“ Web Services Project
 
-## Team Details
+## Student Details
 
-**Group ID:** 02
+**Name:** Aman Kumar  
+**Roll Number:** 20251651017
 
-- Aman Kumar — 20251651017
-- Srikanta Nayak — 20251651090
-- Aditya Verma — 20251651009
-- Pratik Sinha — 20251651071
-
+**Course:** CS543 – Web Services
+**Tutorial:** 09 – API Security
 ## Project Overview
 
 CampusEats is a web services project demonstrating HTTP communication, REST APIs, SOAP contracts, service integration, database connectivity, GraphQL APIs, request validation, API documentation, and error handling.
@@ -54,7 +52,7 @@ The project includes a Flask-based Orders Service, a Catalogue Service, and a Gr
 - Added CORS headers, security headers, and gzip compression.
 - Documented HTTP exchanges and conceptual answers.
 
-### Assignment 6: Honest Responses — Status Codes, Errors & Validation
+### Assignment 6: Honest Responses â€” Status Codes, Errors & Validation
 
 - Improved HTTP status codes for successful requests and failures.
 - Implemented a shared `problem()` helper for consistent Problem Details responses.
@@ -274,30 +272,30 @@ Important status codes include:
 
 ```text
 campuseats/
-├── catalogue-service/
-├── orders-service/
-├── graphql-service/
-│   ├── db.js
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── schema.graphql
-│   ├── schema.sql
-│   ├── server.js
-│   ├── public/
-│   │   └── index.html
-│   └── screenshots/
-│       ├── before.png
-│       └── after.png
-├── brief.md
-├── design.pdf
-├── http-log.md
-├── integration.pdf
-├── network-analysis.md
-├── partner.wsdl
-├── schema.sql
-├── schema.drawio
-├── services.drawio
-└── README.md
+â”œâ”€â”€ catalogue-service/
+â”œâ”€â”€ orders-service/
+â”œâ”€â”€ graphql-service/
+â”‚   â”œâ”€â”€ db.js
+â”‚   â”œâ”€â”€ package.json
+â”‚   â”œâ”€â”€ package-lock.json
+â”‚   â”œâ”€â”€ schema.graphql
+â”‚   â”œâ”€â”€ schema.sql
+â”‚   â”œâ”€â”€ server.js
+â”‚   â”œâ”€â”€ public/
+â”‚   â”‚   â””â”€â”€ index.html
+â”‚   â””â”€â”€ screenshots/
+â”‚       â”œâ”€â”€ before.png
+â”‚       â””â”€â”€ after.png
+â”œâ”€â”€ brief.md
+â”œâ”€â”€ design.pdf
+â”œâ”€â”€ http-log.md
+â”œâ”€â”€ integration.pdf
+â”œâ”€â”€ network-analysis.md
+â”œâ”€â”€ partner.wsdl
+â”œâ”€â”€ schema.sql
+â”œâ”€â”€ schema.drawio
+â”œâ”€â”€ services.drawio
+â””â”€â”€ README.md
 ```
 
 ## Limitations
@@ -362,4 +360,108 @@ Add the Google Drive link after uploading the Assignment 8 demonstration video.
 ### Assignment 8 Demo Video
 
 - **Demo Video:** [Open Google Drive Folder](https://drive.google.com/drive/folders/1GRYleDmb1VKBoqZ4Id442HeF4Ktoca6v?usp=sharing)
+
+
+
+---
+
+# Assignment 09 – Securing the API
+
+## Implementation
+
+Secured the existing CampusEats REST Menu Service using JWT authentication and role-based authorization.
+
+### Technologies
+- Node.js
+- Express.js
+- JSON Web Token (jsonwebtoken)
+- bcryptjs
+- dotenv
+
+### Demo Users
+
+| Email | Password | Role |
+|---|---|---|
+| asha@campus.edu | customer123 | customer |
+| mealhub@campus.edu | resto123 | restaurant |
+
+Passwords are stored as bcrypt hashes.
+
+### API Routes
+
+| Method | Endpoint | Access |
+|---|---|---|
+| POST | `/login` | Public |
+| GET | `/items` | Authenticated users |
+| GET | `/items/:id` | Authenticated users |
+| POST | `/items` | restaurant/admin only |
+
+### Security Implementation
+
+1. Passwords are hashed using bcryptjs.
+2. Login verifies passwords using bcrypt.compareSync.
+3. JWT tokens are generated with user ID and role.
+4. Tokens expire after one hour.
+5. Authentication middleware verifies Bearer tokens.
+6. requireRole middleware restricts write operations.
+7. JWT secret is loaded from the `.env` file using dotenv.
+
+## Assignment Questions and Answers
+
+### Q1. Which routes require only authentication, and which also require a role?
+
+- GET `/items` – Requires authentication only.
+- GET `/items/:id` – Requires authentication only.
+- POST `/items` – Requires authentication and restaurant/admin role.
+- POST `/login` – Public route used to obtain a JWT.
+
+### Q2. Show one 401 and one 403 from your demo. Why did the server return that code?
+
+- **401 Unauthorized:** GET `/items` without a valid token returned 401 because the request was not authenticated.
+- **403 Forbidden:** POST `/items` using a customer token returned 403 because the customer was authenticated but did not have permission to add menu items.
+
+### Q3. What is inside your JWT payload? Why is it safe to trust the role claim on the server, and why must the secret stay out of your code?
+
+The JWT payload contains:
+- `sub`: User ID
+- `role`: User role (customer or restaurant)
+- `iat`: Issued-at timestamp
+- `exp`: Expiration timestamp
+
+The server verifies the JWT signature using `jwt.verify()` and the secret before trusting its payload. Any modification to the signed payload invalidates the signature.
+
+The JWT secret must remain outside the source code to prevent unauthorized users from accessing it and generating forged tokens. It is loaded from the environment variable `JWT_SECRET`.
+
+## Test Results
+
+| Test Case | Expected Status | Result |
+|---|---:|---|
+| GET `/items` without token | 401 | Passed |
+| Customer login | 200 | Passed |
+| GET `/items` with customer token | 200 | Passed |
+| Restaurant POST `/items` | 201 | Passed |
+| Customer POST `/items` | 403 | Passed |
+
+## Environment Setup
+
+1. Install dependencies using `npm install`.
+2. Create a `.env` file using `.env.example` as a template.
+3. Set your `JWT_SECRET` in `.env`.
+4. Start the service using `npm start`.
+
+
+---
+
+## Assignment 09 – Team Details
+
+**Course:** CS543 – Web Services  
+**Assignment:** 09 – Securing the API  
+**Group ID:** 02
+
+| Sr. No. | Student Name | Roll Number |
+|---|---|---|
+| 1 | Aman Kumar | 20251651017 |
+| 2 | Shrikanta Nayak | To be added |
+| 3 | Aditya Verma | To be added |
+| 4 | Pratik Sinha | To be added |
 

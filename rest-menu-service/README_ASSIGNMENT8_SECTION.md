@@ -1,11 +1,14 @@
-## Team Details
+﻿# CampusEats â€“ README Sections
 
-**Group ID:** 02
+## Student Details
 
-1. Aman Kumar — 20251651017
-2. Srikanta Nayak — 20251651090
-3. Aditya Verma — 20251651009
-4. Pratik Sinha — 20251651071
+**Name:** Aman Kumar  
+**Roll Number:** 20251651017
+
+**Course:** CS543 – Web Services
+**Tutorial:** 09 – API Security
+---
+
 ## Assignment 8: REST Menu Service
 
 We selected the CampusEats Menu/Catalogue service and implemented it as a REST API using Node.js and Express.
@@ -50,3 +53,84 @@ Open `http://localhost:3000/`.
 - **Assignment 8 Demo Video:** [Watch Demo / Open Google Drive Folder](https://drive.google.com/drive/folders/1GRYleDmb1VKBoqZ4Id442HeF4Ktoca6v?usp=sharing)
 - **Before Screenshot:** `rest-menu-service/screenshots/before.png`
 - **After Screenshot:** `rest-menu-service/screenshots/after.png`
+
+---
+
+## TUTORIAL-09 API Security: Authentication and Authorization
+
+We secured the CampusEats REST Menu Service using JWT authentication and role-based authorization.
+
+### Security Features
+
+- Passwords are hashed using `bcryptjs`.
+- JWT tokens are generated using `jsonwebtoken` after successful login.
+- Tokens expire after one hour.
+- Authentication middleware verifies JWT tokens.
+- Authorization middleware checks user roles.
+- Customers can view menu items.
+- Restaurant users can add menu items.
+
+### Demo User Credentials
+
+| Role | Email | Password |
+|---|---|---|
+| Customer | `asha@campus.edu` | `customer123` |
+| Restaurant | `mealhub@campus.edu` | `resto123` |
+
+*These are demonstration credentials for the local lab only.*
+
+### API Routes
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/login` | Public | Verify credentials and return a JWT |
+| GET | `/items` | Authenticated users | Return all menu items |
+| GET | `/items/:id` | Authenticated users | Return one menu item |
+| POST | `/items` | Restaurant/Admin | Add a menu item |
+
+### HTTP Status Codes
+
+| Status | Meaning |
+|---|---|
+| 200 | Request successful |
+| 201 | Menu item created |
+| 401 | Invalid login, missing token, or invalid token |
+| 403 | Authenticated user does not have permission |
+| 404 | Menu item not found |
+| 422 | Invalid or missing input data |
+
+### Authentication and Authorization Flow
+
+1. The user sends an email and password to `POST /login`.
+2. The server checks the password using `bcryptjs`.
+3. On successful login, the server generates a signed JWT containing the user ID and role.
+4. The client sends the token in the `Authorization: Bearer <token>` header.
+5. Authentication middleware verifies the token.
+6. Authorization middleware checks the user's role before allowing restricted operations.
+
+### Testing Results
+
+| Test Case | Expected Result | Observed Result |
+|---|---|---|
+| GET `/items` without token | 401 | PASS |
+| GET `/items` with invalid token | 401 | PASS |
+| Customer login | JWT generated | PASS |
+| Customer GET `/items` | 200 | PASS |
+| Customer POST `/items` | 403 | PASS |
+| Restaurant login | JWT generated | PASS |
+| Restaurant POST `/items` | 201 | PASS |
+| Login with incorrect password | 401 | PASS |
+| Customer GET `/items/1` | 200 | PASS |
+
+### Run API Security Module
+
+```powershell
+cd rest-menu-service
+npm install
+node server.js
+```
+
+Open `http://localhost:3000/` in your browser.
+
+**Security Note:** The fallback JWT secret is for local development only. A deployed application should use a strong secret stored in an environment variable and HTTPS.
+

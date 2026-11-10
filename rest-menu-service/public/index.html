@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,81 +12,279 @@
     <header>
       <p class="eyebrow">CAMPUS EATS</p>
       <h1>Menu Catalogue</h1>
-      <p class="subtitle">Browse dishes and add a new menu item.</p>
+      <p class="subtitle">Secure Menu Management System</p>
     </header>
-    <section class="panel">
-      <div class="section-heading"><h2>Menu items</h2><button id="refreshButton" class="secondary" type="button">Refresh</button></div>
-      <p id="status" class="status" aria-live="polite">Loading menu...</p>
+
+    <!-- Login Section -->
+    <section class="panel" id="loginPanel">
+      <h2>Login</h2>
+      <form id="loginForm">
+        <label>Email
+          <input id="email" type="email" required
+            placeholder="Enter your email">
+        </label>
+
+        <label>Password
+          <input id="password" type="password" required
+            placeholder="Enter your password">
+        </label>
+
+        <button type="submit">Login</button>
+      </form>
+      <p id="loginMessage" class="form-message"></p>
+    </section>
+
+    <!-- Logged-in User Section -->
+    <section class="panel" id="userPanel" hidden>
+      <p id="userInfo"></p>
+      <button id="logoutButton" class="secondary" type="button">
+        Logout
+      </button>
+    </section>
+
+    <!-- Menu Section -->
+    <section class="panel" id="menuPanel" hidden>
+      <div class="section-heading">
+        <h2>Menu items</h2>
+        <button id="refreshButton" class="secondary" type="button">
+          Refresh
+        </button>
+      </div>
+
+      <p id="status" class="status" aria-live="polite"></p>
       <div id="items" class="items"></div>
     </section>
-    <section class="panel">
+
+    <!-- Add Dish Section -->
+    <section class="panel" id="addPanel" hidden>
       <h2>Add a dish</h2>
+
       <form id="itemForm">
-        <label>Dish name<input id="name" type="text" placeholder="e.g. Chocolate Sandwich" required></label>
-        <label>Price (₹)<input id="price" type="number" min="1" step="0.01" placeholder="e.g. 110" required></label>
-        <label class="checkbox"><input id="available" type="checkbox" checked> Available</label>
+        <label>Dish name
+          <input id="name" type="text"
+            placeholder="e.g. Chocolate Sandwich" required>
+        </label>
+
+        <label>Price (₹)
+          <input id="price" type="number" min="1" step="0.01"
+            placeholder="e.g. 110" required>
+        </label>
+
+        <label class="checkbox">
+          <input id="available" type="checkbox" checked>
+          Available
+        </label>
+
         <button type="submit">Add dish</button>
       </form>
-      <p id="formMessage" class="form-message" aria-live="polite"></p>
+
+      <p id="formMessage" class="form-message"></p>
     </section>
   </main>
+
 <script>
+const loginPanel = document.getElementById("loginPanel");
+const userPanel = document.getElementById("userPanel");
+const menuPanel = document.getElementById("menuPanel");
+const addPanel = document.getElementById("addPanel");
+
 const itemsContainer = document.getElementById("items");
 const statusMessage = document.getElementById("status");
-const form = document.getElementById("itemForm");
+const loginMessage = document.getElementById("loginMessage");
 const formMessage = document.getElementById("formMessage");
 
+let token = sessionStorage.getItem("token");
+let currentRole = sessionStorage.getItem("role");
+
+function authHeaders() {
+  return {
+    Authorization: `Bearer ${token}`
+  };
+}
+
+function showDashboard() {
+  loginPanel.hidden = true;
+  userPanel.hidden = false;
+  menuPanel.hidden = false;
+
+  document.getElementById("userInfo").textContent =
+    `Logged in as: ${currentRole}`;
+
+  addPanel.hidden = currentRole !== "restaurant" &&
+                    currentRole !== "admin";
+
+  loadItems();
+}
+
+function logout() {
+  sessionStorage.removeItem("token");
+  sessionStorage.removeItem("role");
+
+  token = null;
+  currentRole = null;
+
+  loginPanel.hidden = false;
+  userPanel.hidden = true;
+  menuPanel.hidden = true;
+  addPanel.hidden = true;
+
+  itemsContainer.innerHTML = "";
+  loginMessage.textContent = "You have logged out.";
+}
+
+// Login API
+document.getElementById("loginForm").addEventListener(
+  "submit", async (event) => {
+    event.preventDefault();
+
+    loginMessage.textContent = "Logging in...";
+
+    const body = {
+      email: document.getElementById("email").value,
+      password: document.getElementById("password").value
+    };
+
+    try {
+      const response = await fetch("/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Login failed");
+      }
+
+      token = result.token;
+
+      const payload = JSON.parse(
+        atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+      );
+
+      currentRole = payload.role;
+
+      sessionStorage.setItem("token", token);
+      sessionStorage.setItem("role", currentRole);
+
+      loginMessage.textContent = "";
+      showDashboard();
+
+    } catch (error) {
+      loginMessage.textContent = error.message;
+    }
+  }
+);
+
+// Load menu items
 async function loadItems() {
   statusMessage.textContent = "Loading menu...";
+
   try {
-    const response = await fetch("/items");
-    const items = await response.json();
-    if (!response.ok) throw new Error(items.error || "Could not load menu");
+    const response = await fetch("/items", {
+      headers: authHeaders()
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || "Could not load menu");
+    }
+
     itemsContainer.innerHTML = "";
-    items.forEach(item => {
+
+    result.forEach(item => {
       const card = document.createElement("article");
       card.className = "item-card";
+
       const name = document.createElement("h3");
       name.textContent = item.name;
+
       const price = document.createElement("p");
       price.className = "price";
       price.textContent = `₹${Number(item.price).toFixed(2)}`;
+
       const availability = document.createElement("span");
-      availability.className = item.available ? "available" : "unavailable";
-      availability.textContent = item.available ? "Available" : "Unavailable";
+      availability.className =
+        item.available ? "available" : "unavailable";
+      availability.textContent =
+        item.available ? "Available" : "Unavailable";
+
       const id = document.createElement("small");
       id.textContent = `Item #${item.id}`;
+
       card.append(name, price, availability, id);
       itemsContainer.appendChild(card);
     });
-    statusMessage.textContent = `${items.length} menu item(s) loaded.`;
-  } catch (error) { statusMessage.textContent = error.message; }
+
+    statusMessage.textContent =
+      `${result.length} menu item(s) loaded.`;
+
+  } catch (error) {
+    statusMessage.textContent = error.message;
+
+    if (error.message.includes("token")) {
+      logout();
+    }
+  }
 }
 
-form.addEventListener("submit", async event => {
-  event.preventDefault();
-  formMessage.textContent = "Adding dish...";
-  const payload = {
-    name: document.getElementById("name").value,
-    price: Number(document.getElementById("price").value),
-    available: document.getElementById("available").checked
-  };
-  try {
-    const response = await fetch("/items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
-    form.reset();
-    document.getElementById("available").checked = true;
-    formMessage.textContent = `Added ${result.name} successfully (ID: ${result.id}).`;
-    await loadItems();
-  } catch (error) { formMessage.textContent = error.message; }
-});
-document.getElementById("refreshButton").addEventListener("click", loadItems);
-loadItems();
+// Add dish API
+document.getElementById("itemForm").addEventListener(
+  "submit", async (event) => {
+    event.preventDefault();
+
+    formMessage.textContent = "Adding dish...";
+
+    const payload = {
+      name: document.getElementById("name").value,
+      price: Number(document.getElementById("price").value),
+      available: document.getElementById("available").checked
+    };
+
+    try {
+      const response = await fetch("/items", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Could not add dish");
+      }
+
+      event.target.reset();
+      document.getElementById("available").checked = true;
+
+      formMessage.textContent =
+        `Added ${result.name} successfully (ID: ${result.id}).`;
+
+      await loadItems();
+
+    } catch (error) {
+      formMessage.textContent = error.message;
+    }
+  }
+);
+
+document.getElementById("refreshButton")
+  .addEventListener("click", loadItems);
+
+document.getElementById("logoutButton")
+  .addEventListener("click", logout);
+
+// Restore login during the current browser session
+if (token && currentRole) {
+  showDashboard();
+}
 </script>
 </body>
 </html>
