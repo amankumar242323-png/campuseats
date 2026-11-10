@@ -1,13 +1,15 @@
 ﻿# CampusEats â€“ README Sections
 
-## Student Details
+**Group ID:** 02
 
-**Name:** Aman Kumar  
-**Roll Number:** 20251651017
+| Sr. No. | Student Name | Roll Number |
+|---|---|---|
+| 1 | Aman Kumar | 20251651017 |
+| 2 | Shrikanta Nayak | To be added |
+| 3 | Aditya Verma | To be added |
+| 4 | Pratik Sinha | To be added |
 
 **Course:** CS543 – Web Services
-**Tutorial:** 09 – API Security
----
 
 ## Assignment 8: REST Menu Service
 
