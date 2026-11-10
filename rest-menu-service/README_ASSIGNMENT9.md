@@ -157,17 +157,18 @@ Open the URL in a browser to access the frontend.
 
 ## 9. Demo and Screenshots
 
-The demonstration covers the five required security cases:
+The demo video and screenshots demonstrating all five API security test cases are available in the following Google Drive folder:
 
-1. Request without token – HTTP 401.
-2. Successful login – JWT generated.
-3. Request with a valid token – HTTP 200.
-4. Restaurant adds a menu item – HTTP 201.
-5. Customer attempts to add a menu item – HTTP 403.
+**Google Drive Folder:** [CampusEats Assignment 09 – Demo Video & Screenshots](https://drive.google.com/drive/folders/1t5MPEoFsEjF_6SvAvklgmCGJBXuMwNS?usp=sharing)
 
-**Demo Video:** Add the Google Drive link here.
+The folder contains:
+- Screenshot: 401 Unauthorized (No Token)
+- Screenshot: 200 OK (Successful Login)
+- Screenshot: 200 OK (Authenticated GET Request)
+- Screenshot: 201 Created (Restaurant POST Request)
+- Screenshot: 403 Forbidden (Customer POST Request)
+- Assignment 09 demonstration video
 
-**Screenshots:** Add the Google Drive folder link containing the five test screenshots here.
 
 ## 10. Conclusion
 
